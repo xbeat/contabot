@@ -1,0 +1,8 @@
+venv/
+.env
+*.pyc
+__pycache__/
+.DS_Store
+contabot.sublime-workspace
+contabot.sublime-project
+credentials/

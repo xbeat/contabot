@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: contabot
+    env: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install -r requirements.txt
+    startCommand: python contabot
+    envVars:
+      - key: TELEGRAM_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: GMAIL_CREDENTIALS_PATH
+        value: /etc/secrets/credentials.json
