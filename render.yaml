@@ -4,8 +4,11 @@ services:
     env: python
     plan: free
     region: frankfurt
+    repo: https://github.com/xbeat/contabot
+    branch: master
+    autoDeploy: true        
     buildCommand: pip install -r requirements.txt
-    startCommand: python contabot
+    startCommand: python contabot.py
     envVars:
       - key: TELEGRAM_TOKEN
         sync: false
