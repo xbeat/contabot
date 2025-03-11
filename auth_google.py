@@ -1,60 +1,55 @@
 import os
 import json
+import logging  # Aggiunto import mancante
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 
-# Configurazione
-SCOPES = [
-    'https://www.googleapis.com/auth/gmail.send',  # Permessi per Gmail
-]
+# Configurazione logging
+logging.basicConfig(level=logging.INFO)
 
-def get_credentials_path():
-    """
-    Restituisce il percorso corretto per le credenziali in base all'ambiente.
-    - In produzione: usa /etc/secrets/credentials.json
-    - In sviluppo: usa credentials/credentials.json
-    """
-    if os.getenv('ENV') == 'prod':
-        return '/etc/secrets/credentials.json'
-    else:
-        return 'credentials/credentials.json'
-
-def get_token_path():
-    """
-    Restituisce il percorso corretto per il token in base all'ambiente.
-    - In produzione: usa /etc/secrets/token.json
-    - In sviluppo: usa credentials/token.json
-    """
-    if os.getenv('ENV') == 'prod':
-        return '/etc/secrets/token.json'
-    else:
-        return 'credentials/token.json'
+SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 
 def get_credentials():
     """Ottieni o crea le credenziali OAuth 2.0."""
     creds = None
-    creds_path = get_credentials_path()
     token_path = get_token_path()
+    client_secrets_path = get_credentials_path()  # Rinominato per chiarezza
 
-    # Se esiste già un token, caricalo
+    # 1. Tentativo di caricamento token esistente
     if os.path.exists(token_path):
-        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        try:
+            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+            logging.info("Token caricato correttamente")
+        except Exception as e:
+            logging.warning(f"Errore nel caricamento del token: {str(e)}")
 
-    # Se non ci sono credenziali valide, chiedi all'utente di autenticarsi
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
+    # 2. Aggiornamento token scaduto
+    if creds and creds.expired and creds.refresh_token:
+        try:
             creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
-            creds = flow.run_local_server(port=0)
+            # Salva il token aggiornato
+            with open(token_path, 'w') as token:
+                token.write(creds.to_json())
+            logging.info("Token aggiornato e salvato")
+        except Exception as e:
+            logging.error(f"Errore nell'aggiornamento: {str(e)}")
+            creds = None
+
+    # 3. Flusso OAuth solo se necessario e in ambiente di sviluppo
+    if not creds:
+        if os.getenv('ENV') == 'prod':
+            raise Exception("Token mancante in produzione")
         
-        # Salva le credenziali per il prossimo avvio
+        if not os.path.exists(client_secrets_path):
+            raise FileNotFoundError("File client_secrets.json mancante")
+        
+        flow = InstalledAppFlow.from_client_secrets_file(client_secrets_path, SCOPES)
+        creds = flow.run_local_server(port=0)
+        
+        # Salva il nuovo token
         with open(token_path, 'w') as token:
             token.write(creds.to_json())
+        logging.info("Nuovo token generato e salvato")
 
     return creds
-
-if __name__ == "__main__":
-    creds = get_credentials()
-    print("Credenziali configurate con successo!")
